@@ -23,4 +23,3 @@ dev = [
 asyncio_mode = "auto"
 pythonpath = ["."]
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py", "skip_next_meal.py"]
