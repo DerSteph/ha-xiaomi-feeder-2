@@ -164,6 +164,8 @@ cards:
 
 ## 🛠️ Custom Services (`services.yaml`)
 
+Every action takes an optional `device_id` (one or more feeder devices). With only one feeder set up it can be left out; with several feeders it is required, otherwise the action fails instead of guessing.
+
 - `xiaomi_feeder.feed`: Dispenses `portions` (1–30).
 - `xiaomi_feeder.calibrate_scale`: Calibrates / zeroes the bowl scale.
 - `xiaomi_feeder.skip_next_meal`: Skips 1 or $N$ upcoming scheduled meal(s).
