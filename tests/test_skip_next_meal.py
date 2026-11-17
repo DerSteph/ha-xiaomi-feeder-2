@@ -32,6 +32,8 @@ def make_coordinator(mock_hass):
             )
         coordinator.async_request_refresh = AsyncMock()
         coordinator._write_raw_hardware_schedule_sync = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+        coordinator._store.async_load = AsyncMock(return_value=None)
         return coordinator
 
     return _make
@@ -134,3 +136,120 @@ async def test_skip_method_setting(make_coordinator):
 
     coordinator._stored_data["skip_method"] = "old_value"
     assert coordinator.skip_method == "remove"
+
+
+
+def _two_meal_data(next_feed_time):
+    meals = [
+        ScheduleMeal(time="12:00", portions=1, repeat=127, raw="12000101"),
+        ScheduleMeal(time="16:00", portions=1, repeat=127, raw="16000101"),
+    ]
+    return FeederCoordinatorData(
+        status=MagicMock(spec=FeederStatus),
+        schedule=SchedulePlan(enabled=True, meals=meals, raw_string="[1,12000101,16000101]"),
+        next_feed_time=next_feed_time,
+    )
+
+
+@pytest.mark.asyncio
+async def test_skip_state_is_persisted_and_cleared(make_coordinator):
+    """An active skip is stored, and removed from storage again when resumed."""
+    coordinator = make_coordinator()
+    coordinator._stored_data = {"master_schedule_raw": "[1,12000101,16000101]"}
+    meal = datetime(2026, 11, 18, 11, 0, tzinfo=timezone.utc)
+    coordinator.data = _two_meal_data(meal)
+
+    await coordinator.async_set_skip_next_meal(True)
+    assert coordinator._stored_data["skip_state"] == {"meal_time": meal.isoformat(), "count": 1}
+    coordinator._store.async_save.assert_awaited()
+
+    await coordinator.async_set_skip_next_meal(False)
+    assert "skip_state" not in coordinator._stored_data
+
+
+@pytest.mark.asyncio
+async def test_skip_state_survives_restart(make_coordinator):
+    """A new coordinator (HA restart) loads the active skip from storage."""
+    meal = datetime(2026, 11, 18, 11, 0, tzinfo=timezone.utc)
+    coordinator = make_coordinator()
+    coordinator._store.async_load = AsyncMock(return_value={
+        "manual_portions": 1,
+        "master_schedule_raw": "[1,12000101,16000101]",
+        "skip_state": {"meal_time": meal.isoformat(), "count": 1},
+    })
+
+    await coordinator.async_load_storage()
+
+    assert coordinator._skip_next_meal is True
+    assert coordinator._skipped_meal_time == meal
+    assert coordinator._skip_meals_count == 1
+
+
+@pytest.mark.asyncio
+async def test_broken_skip_state_is_dropped(make_coordinator):
+    coordinator = make_coordinator()
+    coordinator._store.async_load = AsyncMock(return_value={"skip_state": {"meal_time": "garbage"}})
+
+    await coordinator.async_load_storage()
+
+    assert coordinator._skip_next_meal is False
+    assert "skip_state" not in coordinator._stored_data
+
+
+def _run_executor_jobs(mock_hass):
+    async def run(func, *args):
+        return func(*args)
+
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=run)
+
+
+def _idle_status():
+    status = MagicMock(spec=FeederStatus)
+    status.is_busy = False
+    status.bowl_food_weight = 0
+    status.target_feeding_portions = None
+    status.daily_eaten_weight = 0
+    return status
+
+
+@pytest.mark.asyncio
+async def test_update_restores_schedule_after_skipped_meal(mock_hass, make_coordinator):
+    """After the skipped meal (e.g. right after a restart) the master schedule is written back."""
+    _run_executor_jobs(mock_hass)
+    coordinator = make_coordinator()
+    coordinator._stored_data = {
+        "master_schedule_raw": "[1,12000101,16000101]",
+        "skip_state": {"meal_time": "2020-01-01T11:00:00+00:00", "count": 1},
+    }
+    coordinator._restore_skip_state()
+    coordinator.client.status.return_value = _idle_status()
+    coordinator.client.get_hardware_schedule.return_value = "[1,12000101,16000101]"
+
+    await coordinator._async_update_data()
+
+    coordinator._write_raw_hardware_schedule_sync.assert_called_once_with("[1,12000101,16000101]")
+    assert coordinator._skip_next_meal is False
+    assert "skip_state" not in coordinator._stored_data
+
+
+@pytest.mark.asyncio
+async def test_update_keeps_skip_when_restore_fails(mock_hass, make_coordinator):
+    """If the feeder is unreachable, the skip stays stored and the restore is retried later."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    _run_executor_jobs(mock_hass)
+    coordinator = make_coordinator()
+    coordinator._stored_data = {
+        "master_schedule_raw": "[1,12000101,16000101]",
+        "skip_state": {"meal_time": "2020-01-01T11:00:00+00:00", "count": 1},
+    }
+    coordinator._restore_skip_state()
+    coordinator.client.status.return_value = _idle_status()
+    coordinator.client.get_hardware_schedule.return_value = "[1,16000101]"
+    coordinator._write_raw_hardware_schedule_sync.side_effect = OSError("feeder offline")
+
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+    assert coordinator._skip_next_meal is True
+    assert "skip_state" in coordinator._stored_data
