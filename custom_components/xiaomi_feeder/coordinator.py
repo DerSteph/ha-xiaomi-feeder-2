@@ -389,6 +389,13 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             pass
         return res
 
+    @staticmethod
+    def _mask_meal_raw(raw: str) -> str:
+        """Disable a meal by zeroing its status field (last 2 digits: 01=active, 00=disabled)."""
+        if not raw or len(raw) < 8:
+            return raw
+        return raw[:6] + "00"
+
     async def async_write_hardware_schedule(self, raw_schedule_str: str) -> None:
         """Write raw schedule string to EEPROM and update master template."""
         clean_str = raw_schedule_str.strip()
@@ -417,11 +424,11 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
 
             # Create an EEPROM payload that temporarily omits the next meal
             target_time_str = self.data.next_feed_time.strftime("%H:%M")
-            remaining_meals = [m for m in self.data.schedule.meals if m.time != target_time_str]
-            
-            # Format raw payload from remaining meals
-            raw_payload = "".join(m.raw for m in remaining_meals) or "0"
-            _LOGGER.info("Temporarily masking meal at %s. Writing payload: %s", target_time_str, raw_payload)
+            raw_payload = ",".join(
+                self._mask_meal_raw(m.raw) if m.time == target_time_str else m.raw
+                for m in self.data.schedule.meals
+            ) or "0"
+            _LOGGER.info("Temporarily disabling meal at %s. Writing payload: %s", target_time_str, raw_payload)
             await self.hass.async_add_executor_job(self._write_raw_hardware_schedule_sync, raw_payload)
         else:
             self._skip_next_meal = False
