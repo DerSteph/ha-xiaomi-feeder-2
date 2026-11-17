@@ -72,8 +72,11 @@
     "sensor": {
       "bowl_weight": { "name": "Futternapf-Gewicht" },
       "daily_eaten": { "name": "Heute gefressen" },
+      "daily_eaten_calculated": { "name": "Heute gefressen (Berechnet)" },
       "last_meal_intake": { "name": "Letzte Mahlzeit Menge" },
       "previous_meal_intake": { "name": "Vorherige Mahlzeit Menge" },
+      "last_eating_session": { "name": "Letzter Fressvorgang" },
+      "eating_history": { "name": "Fressverlauf" },
       "next_feeding": { "name": "Nächste Fütterung" },
       "schedule_count": { "name": "Anzahl gespeicherter Mahlzeiten" },
       "last_feed_event": { "name": "Letztes Fütterungsereignis" },
@@ -90,7 +93,8 @@
       "fault": { "name": "Gerätefehler" },
       "dispensing": { "name": "Gibt Futter aus" },
       "refill_alert": { "name": "Nachfüll-Erinnerung aktiv" },
-      "dst_active": { "name": "Sommerzeit aktiv" }
+      "dst_active": { "name": "Sommerzeit aktiv" },
+      "cat_eating": { "name": "Katze frisst" }
     },
     "button": {
       "feed": { "name": "Füttern" },

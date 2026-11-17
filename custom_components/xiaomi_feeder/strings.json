@@ -72,8 +72,11 @@
     "sensor": {
       "bowl_weight": { "name": "Bowl Food Weight" },
       "daily_eaten": { "name": "Daily Eaten Weight" },
+      "daily_eaten_calculated": { "name": "Daily Eaten (Calculated)" },
       "last_meal_intake": { "name": "Last Meal Intake" },
       "previous_meal_intake": { "name": "Previous Meal Intake" },
+      "last_eating_session": { "name": "Last Eating Session" },
+      "eating_history": { "name": "Eating History" },
       "next_feeding": { "name": "Next Feeding" },
       "schedule_count": { "name": "Hardware Schedule Count" },
       "last_feed_event": { "name": "Last Feed Event" },
@@ -90,7 +93,8 @@
       "fault": { "name": "Device Fault" },
       "dispensing": { "name": "Dispensing" },
       "refill_alert": { "name": "Refill Alert" },
-      "dst_active": { "name": "DST Active" }
+      "dst_active": { "name": "DST Active" },
+      "cat_eating": { "name": "Cat Eating" }
     },
     "button": {
       "feed": { "name": "Feed" },

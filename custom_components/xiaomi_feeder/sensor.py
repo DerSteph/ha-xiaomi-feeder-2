@@ -31,8 +31,11 @@ async def async_setup_entry(
     sensors: list[SensorEntity] = [
         XiaomiFeederBowlWeightSensor(coordinator, entry),
         XiaomiFeederDailyEatenSensor(coordinator, entry),
+        XiaomiFeederDailyEatenCalculatedSensor(coordinator, entry),
         XiaomiFeederLastMealSensor(coordinator, entry),
         XiaomiFeederPreviousMealSensor(coordinator, entry),
+        XiaomiFeederLastEatingSensor(coordinator, entry),
+        XiaomiFeederEatingHistorySensor(coordinator, entry),
         XiaomiFeederTargetPortionsSensor(coordinator, entry),
         XiaomiFeederNextFeedSensor(coordinator, entry),
         XiaomiFeederScheduleCountSensor(coordinator, entry),
@@ -82,6 +85,10 @@ class XiaomiFeederBowlWeightSensor(XiaomiFeederBaseSensor):
         if self.coordinator.data and self.coordinator.data.status:
             return self.coordinator.data.status.bowl_food_weight
         return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        return {"fast_polling": self.coordinator.is_fast_weight_polling()}
 
 
 class XiaomiFeederDailyEatenSensor(XiaomiFeederBaseSensor):
@@ -294,4 +301,77 @@ class XiaomiFeederTargetPortionsSensor(XiaomiFeederBaseSensor):
         if self.coordinator.data and self.coordinator.data.status:
             return self.coordinator.data.status.target_feeding_portions
         return None
+
+
+class XiaomiFeederLastEatingSensor(XiaomiFeederBaseSensor):
+    """Grams consumed in the most recent eating session based on bowl scale weight."""
+
+    _attr_translation_key = "last_eating_session"
+    _attr_native_unit_of_measurement = UnitOfMass.GRAMS
+    _attr_device_class = SensorDeviceClass.WEIGHT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:cat"
+
+    def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_last_eating_session"
+        self._attr_name = "Last Eating Session"
+
+    @property
+    def native_value(self) -> Optional[int]:
+        if self.coordinator.data and self.coordinator.data.last_eating_event:
+            return self.coordinator.data.last_eating_event.get("eaten_grams")
+        return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        if self.coordinator.data and self.coordinator.data.last_eating_event:
+            return self.coordinator.data.last_eating_event
+        return {}
+
+
+class XiaomiFeederEatingHistorySensor(XiaomiFeederBaseSensor):
+    """Eating history sensor containing a log of recent cat eating sessions from bowl scale data."""
+
+    _attr_translation_key = "eating_history"
+    _attr_icon = "mdi:history"
+
+    def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_eating_history"
+        self._attr_name = "Eating History"
+
+    @property
+    def native_value(self) -> int:
+        if self.coordinator.data:
+            return len(self.coordinator.data.eating_history)
+        return 0
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        if self.coordinator.data:
+            return {"history": self.coordinator.data.eating_history}
+        return {"history": []}
+
+
+class XiaomiFeederDailyEatenCalculatedSensor(XiaomiFeederBaseSensor):
+    """Daily cumulative eaten food weight calculated strictly from bowl scale weight deltas."""
+
+    _attr_translation_key = "daily_eaten_calculated"
+    _attr_native_unit_of_measurement = UnitOfMass.GRAMS
+    _attr_device_class = SensorDeviceClass.WEIGHT
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:food-drumstick"
+
+    def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_daily_eaten_calculated"
+        self._attr_name = "Daily Eaten (Calculated)"
+
+    @property
+    def native_value(self) -> int:
+        if self.coordinator.data:
+            return self.coordinator.data.daily_eaten_calculated
+        return 0
+
 

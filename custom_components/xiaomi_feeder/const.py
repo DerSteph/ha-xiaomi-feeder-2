@@ -4,6 +4,13 @@ DOMAIN = "xiaomi_feeder"
 DEFAULT_NAME = "Xiaomi Smart Pet Feeder 2"
 DEFAULT_SCAN_INTERVAL = 30  # seconds
 FAST_SCAN_INTERVAL = 2      # seconds while dispensing
+FAST_WEIGHT_SCAN_INTERVAL = 10 # seconds for bowl weight polling, only inside a fast window:
+FAST_WEIGHT_LEAD_SECONDS = 120         # start this long before a scheduled meal (feeder RTC drift)
+FAST_WEIGHT_MEAL_WINDOW_SECONDS = 900  # keep polling this long after a meal time / dispense
+FAST_WEIGHT_IDLE_SECONDS = 300         # extend while the weight changes or a cat eats
+FAST_WEIGHT_WAKE_GRAMS = 3             # weight change seen by the 30 s update that opens a window
+MIN_EATING_THRESHOLD_GRAMS = 2 # minimum net grams drop to record eating session
+STABILITY_REQUIRED_SAMPLES = 2 # consecutive stable samples needed to settle weight
 
 CONF_IP = "host"
 CONF_TOKEN = "token"
@@ -108,4 +115,5 @@ SCREEN_DISPLAY_MAP = {
 
 # Events fired on HA event bus
 EVENT_FEED_COMPLETED = f"{DOMAIN}_feed_completed"
+EVENT_EATING_COMPLETED = f"{DOMAIN}_eating_completed"
 
