@@ -2,6 +2,14 @@ feed:
   name: Feed Portions
   description: Dispenses a specified number of food portions (1–30).
   fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
     portions:
       name: Portions
       description: Number of portions to dispense (1 to 30).
@@ -16,11 +24,28 @@ feed:
 calibrate_scale:
   name: Tare Bowl Scale
   description: Calibrates and zeroes out the load cell of the stainless steel food bowl.
+  fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
 
 skip_next_meal:
   name: Skip Next Meal
   description: Temporarily suppresses the next scheduled hardware feeding without losing your master schedule.
   fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
     count:
       name: Meals Count
       description: Number of upcoming scheduled meals to skip (default 1).
@@ -43,6 +68,14 @@ set_refill_reminder:
   name: Set Refill Reminder
   description: Configures the hopper refill reminder switch and cycle interval hours.
   fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
     enabled:
       name: Enabled
       description: Whether the refill reminder is active.
@@ -64,6 +97,14 @@ set_intake_alarm:
   name: Set Intake Alarm
   description: Configures abnormal low food intake alert threshold percentage.
   fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
     enabled:
       name: Enabled
       description: Whether the low intake alarm is active.
@@ -84,14 +125,41 @@ set_intake_alarm:
 clear_refill_alert:
   name: Clear Refill Alert
   description: Acknowledges and clears the active hopper refill reminder alert.
+  fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
 
 clear_intake_alert:
   name: Clear Intake Alert
   description: Acknowledges and clears the active low food intake alert.
+  fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
 
 clear_schedule:
   name: Clear Hardware Schedule
   description: Erases all offline scheduled meals from internal device EEPROM memory.
+  fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
 
 start_fast_polling:
   name: Start Fast Weight Polling
@@ -99,8 +167,8 @@ start_fast_polling:
   fields:
     device_id:
       name: Feeder
-      description: The feeder(s) to poll fast.
-      required: true
+      description: The feeder(s) to use. Optional when only one feeder is set up.
+      required: false
       selector:
         device:
           integration: xiaomi_feeder

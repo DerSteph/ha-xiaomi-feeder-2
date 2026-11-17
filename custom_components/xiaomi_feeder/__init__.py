@@ -35,20 +35,25 @@ PLATFORMS: list[Platform] = [
     Platform.TEXT,
 ]
 
-# Service Schemas
+# Service Schemas. Every action takes an optional device_id (one or more feeder
+# devices); without it the action only works when exactly one feeder is set up.
+DEVICE_ID_FIELD = {vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string])}
+
 SERVICE_FEED = "feed"
 SERVICE_FEED_SCHEMA = vol.Schema(
     {
+        **DEVICE_ID_FIELD,
         vol.Optional("portions", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
     }
 )
 
 SERVICE_CALIBRATE_SCALE = "calibrate_scale"
-SERVICE_CALIBRATE_SCHEMA = vol.Schema({})
+SERVICE_CALIBRATE_SCHEMA = vol.Schema(DEVICE_ID_FIELD)
 
 SERVICE_SKIP_NEXT_MEAL = "skip_next_meal"
 SERVICE_SKIP_NEXT_MEAL_SCHEMA = vol.Schema(
     {
+        **DEVICE_ID_FIELD,
         vol.Optional("count", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
         vol.Optional("enabled", default=True): cv.boolean,
     }
@@ -57,6 +62,7 @@ SERVICE_SKIP_NEXT_MEAL_SCHEMA = vol.Schema(
 SERVICE_SET_REFILL_REMINDER = "set_refill_reminder"
 SERVICE_SET_REFILL_REMINDER_SCHEMA = vol.Schema(
     {
+        **DEVICE_ID_FIELD,
         vol.Required("enabled"): cv.boolean,
         vol.Optional("interval_hours", default=6): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
     }
@@ -65,30 +71,56 @@ SERVICE_SET_REFILL_REMINDER_SCHEMA = vol.Schema(
 SERVICE_SET_INTAKE_ALARM = "set_intake_alarm"
 SERVICE_SET_INTAKE_ALARM_SCHEMA = vol.Schema(
     {
+        **DEVICE_ID_FIELD,
         vol.Required("enabled"): cv.boolean,
         vol.Optional("threshold_pct", default=10): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
     }
 )
 
 SERVICE_CLEAR_REFILL_ALERT = "clear_refill_alert"
-SERVICE_CLEAR_REFILL_ALERT_SCHEMA = vol.Schema({})
+SERVICE_CLEAR_REFILL_ALERT_SCHEMA = vol.Schema(DEVICE_ID_FIELD)
 
 SERVICE_CLEAR_INTAKE_ALERT = "clear_intake_alert"
-SERVICE_CLEAR_INTAKE_ALERT_SCHEMA = vol.Schema({})
+SERVICE_CLEAR_INTAKE_ALERT_SCHEMA = vol.Schema(DEVICE_ID_FIELD)
 
 SERVICE_CLEAR_SCHEDULE = "clear_schedule"
-SERVICE_CLEAR_SCHEDULE_SCHEMA = vol.Schema({})
+SERVICE_CLEAR_SCHEDULE_SCHEMA = vol.Schema(DEVICE_ID_FIELD)
 
 SERVICE_START_FAST_POLLING = "start_fast_polling"
 SERVICE_START_FAST_POLLING_SCHEMA = vol.Schema(
     {
-        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        **DEVICE_ID_FIELD,
         vol.Optional("duration", default=FAST_WEIGHT_IDLE_SECONDS): vol.All(
             vol.Coerce(int), vol.Range(min=10, max=3600)
         ),
     }
 )
 
+
+def _target_coordinators(hass: HomeAssistant, call: ServiceCall) -> list[XiaomiFeederCoordinator]:
+    """Resolve the feeders an action call is meant for."""
+    loaded: dict[str, XiaomiFeederCoordinator] = hass.data.get(DOMAIN, {})
+    device_ids = call.data.get("device_id")
+    if not device_ids:
+        if len(loaded) == 1:
+            return list(loaded.values())
+        raise ServiceValidationError(
+            f"{len(loaded)} feeders are set up, choose the feeder with device_id"
+        )
+
+    dev_reg = dr.async_get(hass)
+    targets: list[XiaomiFeederCoordinator] = []
+    for device_id in device_ids:
+        device = dev_reg.async_get(device_id)
+        found = [
+            loaded[entry_id]
+            for entry_id in (device.config_entries if device else ())
+            if entry_id in loaded
+        ]
+        if not found:
+            raise ServiceValidationError(f"Device {device_id} is not a loaded Xiaomi feeder")
+        targets.extend(found)
+    return targets
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Xiaomi Pet Feeder from a config entry."""
@@ -113,52 +145,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register custom services
+    # Register custom services (once; each call resolves its feeder(s) itself)
     async def async_handle_feed(call: ServiceCall) -> None:
-        portions = call.data.get("portions", 1)
-        await coordinator.async_feed(portions)
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_feed(call.data["portions"])
 
     async def async_handle_calibrate(call: ServiceCall) -> None:
-        await coordinator.async_calibrate_scale()
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_calibrate_scale()
 
     async def async_handle_skip_next_meal(call: ServiceCall) -> None:
-        count = call.data.get("count", 1)
-        enabled = call.data.get("enabled", True)
-        await coordinator.async_set_skip_next_meal(skip=enabled, count=count)
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_set_skip_next_meal(skip=call.data["enabled"], count=call.data["count"])
 
     async def async_handle_set_refill(call: ServiceCall) -> None:
-        enabled = call.data["enabled"]
-        hours = call.data.get("interval_hours", 6)
-        await coordinator.async_set_refill_reminder(enabled, hours)
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_set_refill_reminder(call.data["enabled"], call.data["interval_hours"])
 
     async def async_handle_set_intake(call: ServiceCall) -> None:
-        enabled = call.data["enabled"]
-        threshold = call.data.get("threshold_pct", 10)
-        await coordinator.async_set_intake_alarm(enabled, threshold)
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_set_intake_alarm(call.data["enabled"], call.data["threshold_pct"])
 
     async def async_handle_clear_refill(call: ServiceCall) -> None:
-        await coordinator.async_clear_refill_alert()
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_clear_refill_alert()
 
     async def async_handle_clear_intake(call: ServiceCall) -> None:
-        await coordinator.async_clear_intake_alert()
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_clear_intake_alert()
 
     async def async_handle_clear_schedule(call: ServiceCall) -> None:
-        await coordinator.async_clear_hardware_schedule()
+        for feeder in _target_coordinators(hass, call):
+            await feeder.async_clear_hardware_schedule()
 
     async def async_handle_start_fast_polling(call: ServiceCall) -> None:
-        # Resolved per call from the device, so it works with several feeders.
-        dev_reg = dr.async_get(hass)
-        for device_id in call.data["device_id"]:
-            device = dev_reg.async_get(device_id)
-            coordinators = [
-                hass.data[DOMAIN][entry_id]
-                for entry_id in (device.config_entries if device else ())
-                if entry_id in hass.data.get(DOMAIN, {})
-            ]
-            if not coordinators:
-                raise ServiceValidationError(f"Device {device_id} is not a loaded Xiaomi feeder")
-            for feeder in coordinators:
-                feeder.async_start_fast_polling(call.data["duration"])
+        for feeder in _target_coordinators(hass, call):
+            feeder.async_start_fast_polling(call.data["duration"])
 
     # Service bindings
     services = [
