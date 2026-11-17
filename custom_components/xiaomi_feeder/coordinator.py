@@ -177,6 +177,7 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         if isinstance(loaded, dict):
             self._stored_data = loaded
             self._manual_portions = self._stored_data.get("manual_portions", 1)
+            self._restore_skip_state()
         else:
             self._stored_data = {
                 "manual_portions": 1,
@@ -427,21 +428,25 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             # 5. Supervisor: Calculate next scheduled feeding & handle Skip Next Meal
             next_time, next_portions = self._calculate_next_feeding(schedule.meals)
 
-            # Check if an active skipped meal timestamp has now passed
+            # Check if an active skipped meal timestamp has now passed (also right after
+            # a restart, the skip state is restored from storage)
             if self._skipped_meal_time and now > self._skipped_meal_time:
                 _LOGGER.info("Skipped meal time %s has passed. Restoring master schedule", self._skipped_meal_time)
-                self._skipped_meal_time = None
-                self._skip_next_meal = False
-                if self._skip_meals_count > 0:
-                    self._skip_meals_count -= 1
 
-                # Restore master schedule to EEPROM
+                # Restore master schedule to EEPROM. The skip state is only cleared after
+                # the write, so a feeder that is offline now gets it on the next update.
                 master_raw = self._stored_data.get("master_schedule_raw")
                 if master_raw:
                     await self._async_device_job(self._write_raw_hardware_schedule_sync, master_raw)
                     raw_sched = await self._async_device_job(self.client.get_hardware_schedule)
                     schedule = self._parse_schedule(raw_sched)
                     next_time, next_portions = self._calculate_next_feeding(schedule.meals)
+
+                self._skipped_meal_time = None
+                self._skip_next_meal = False
+                if self._skip_meals_count > 0:
+                    self._skip_meals_count -= 1
+                await self._async_persist_skip_state()
 
             # 6. Detect Feed Events and Build Feed History
             feed_history = self._stored_data.get("feed_history", [])
@@ -711,13 +716,40 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
                 "Skipping meal at %s (%s). Writing payload: %s", target_time_str, self.skip_method, raw_payload
             )
             await self._async_device_job(self._write_raw_hardware_schedule_sync, raw_payload)
+            await self._async_persist_skip_state()
         else:
-            self._skip_next_meal = False
-            self._skip_meals_count = 0
-            self._skipped_meal_time = None
             master_raw = self._stored_data.get("master_schedule_raw", "")
             if master_raw:
                 _LOGGER.info("Restoring master schedule to EEPROM: %s", master_raw)
                 await self._async_device_job(self._write_raw_hardware_schedule_sync, master_raw)
+            self._skip_next_meal = False
+            self._skip_meals_count = 0
+            self._skipped_meal_time = None
+            await self._async_persist_skip_state()
 
         await self.async_request_refresh()
+
+    async def _async_persist_skip_state(self) -> None:
+        """Store an active skip, so a restart before the meal time still restores the schedule."""
+        if self._skip_next_meal and self._skipped_meal_time:
+            self._stored_data["skip_state"] = {
+                "meal_time": self._skipped_meal_time.isoformat(),
+                "count": self._skip_meals_count,
+            }
+        else:
+            self._stored_data.pop("skip_state", None)
+        await self._async_save_storage()
+
+    def _restore_skip_state(self) -> None:
+        """Load an active skip from storage (see _async_persist_skip_state)."""
+        state = self._stored_data.get("skip_state")
+        if not isinstance(state, dict):
+            return
+        meal_time = dt_util.parse_datetime(str(state.get("meal_time", "")))
+        if meal_time is None:
+            self._stored_data.pop("skip_state", None)
+            return
+        self._skip_next_meal = True
+        self._skipped_meal_time = meal_time
+        self._skip_meals_count = int(state.get("count", 1))
+        _LOGGER.info("Restored active skip of the meal at %s", meal_time)
