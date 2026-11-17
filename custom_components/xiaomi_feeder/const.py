@@ -120,7 +120,7 @@ EVENT_EATING_COMPLETED = f"{DOMAIN}_eating_completed"
 # How "skip next meal" changes the EEPROM schedule (selectable per feeder).
 # remove: drop the meal, the master schedule is written back afterwards (reliable).
 # disable_today: status digits 01 -> 00, the firmware's own "skipped for today only".
-#   Not honored by every feeder and resets at midnight, so it cannot skip tomorrow's meal.
+#   Not honored by every feeder, and only meant for the current day (likely reset at midnight).
 SKIP_METHOD_REMOVE = "remove"
 SKIP_METHOD_DISABLE_TODAY = "disable_today"
 SKIP_METHODS = [SKIP_METHOD_REMOVE, SKIP_METHOD_DISABLE_TODAY]
