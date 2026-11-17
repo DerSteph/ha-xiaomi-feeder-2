@@ -9,7 +9,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     CONF_IP,
@@ -17,6 +19,7 @@ from .const import (
     CONF_TOKEN,
     DEFAULT_NAME,
     DOMAIN,
+    FAST_WEIGHT_IDLE_SECONDS,
 )
 from .coordinator import XiaomiFeederCoordinator
 
@@ -76,6 +79,16 @@ SERVICE_CLEAR_INTAKE_ALERT_SCHEMA = vol.Schema({})
 SERVICE_CLEAR_SCHEDULE = "clear_schedule"
 SERVICE_CLEAR_SCHEDULE_SCHEMA = vol.Schema({})
 
+SERVICE_START_FAST_POLLING = "start_fast_polling"
+SERVICE_START_FAST_POLLING_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("duration", default=FAST_WEIGHT_IDLE_SECONDS): vol.All(
+            vol.Coerce(int), vol.Range(min=10, max=3600)
+        ),
+    }
+)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Xiaomi Pet Feeder from a config entry."""
@@ -132,6 +145,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def async_handle_clear_schedule(call: ServiceCall) -> None:
         await coordinator.async_clear_hardware_schedule()
 
+    async def async_handle_start_fast_polling(call: ServiceCall) -> None:
+        # Resolved per call from the device, so it works with several feeders.
+        dev_reg = dr.async_get(hass)
+        for device_id in call.data["device_id"]:
+            device = dev_reg.async_get(device_id)
+            coordinators = [
+                hass.data[DOMAIN][entry_id]
+                for entry_id in (device.config_entries if device else ())
+                if entry_id in hass.data.get(DOMAIN, {})
+            ]
+            if not coordinators:
+                raise ServiceValidationError(f"Device {device_id} is not a loaded Xiaomi feeder")
+            for feeder in coordinators:
+                feeder.async_start_fast_polling(call.data["duration"])
+
     # Service bindings
     services = [
         (SERVICE_FEED, async_handle_feed, SERVICE_FEED_SCHEMA),
@@ -142,6 +170,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         (SERVICE_CLEAR_REFILL_ALERT, async_handle_clear_refill, SERVICE_CLEAR_REFILL_ALERT_SCHEMA),
         (SERVICE_CLEAR_INTAKE_ALERT, async_handle_clear_intake, SERVICE_CLEAR_INTAKE_ALERT_SCHEMA),
         (SERVICE_CLEAR_SCHEDULE, async_handle_clear_schedule, SERVICE_CLEAR_SCHEDULE_SCHEMA),
+        (SERVICE_START_FAST_POLLING, async_handle_start_fast_polling, SERVICE_START_FAST_POLLING_SCHEMA),
     ]
 
     for service_name, handler, schema in services:

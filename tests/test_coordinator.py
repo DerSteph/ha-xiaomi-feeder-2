@@ -346,3 +346,21 @@ def test_fast_window_extends_while_weight_changes():
     hass.async_add_executor_job.return_value = [{"value": 5}]
     asyncio.run(coord._async_poll_weight(t0 + timedelta(seconds=5)))
     assert coord._fast_poll_until == t0 + timedelta(seconds=5) + timedelta(minutes=5)
+
+
+def test_start_fast_polling_opens_window_and_polls_now():
+    """An external request opens a window and reads the weight right away."""
+    import asyncio
+
+    async def run():
+        coord, hass = _make_fast_poll_coordinator(weight=13)
+        tasks = []
+        hass.async_create_task = lambda coro: tasks.append(asyncio.ensure_future(coro))
+
+        assert not coord.is_fast_weight_polling()
+        coord.async_start_fast_polling(300)
+        assert coord.is_fast_weight_polling()
+        await asyncio.gather(*tasks)
+        hass.async_add_executor_job.assert_called_once()
+
+    asyncio.run(run())

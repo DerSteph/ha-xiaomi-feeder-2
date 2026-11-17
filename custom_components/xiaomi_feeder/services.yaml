@@ -92,3 +92,27 @@ clear_intake_alert:
 clear_schedule:
   name: Clear Hardware Schedule
   description: Erases all offline scheduled meals from internal device EEPROM memory.
+
+start_fast_polling:
+  name: Start Fast Weight Polling
+  description: Polls the bowl weight every 10 s for a while, e.g. when a camera sees a cat at the bowl. Extends an already running fast window, never shortens it.
+  fields:
+    device_id:
+      name: Feeder
+      description: The feeder(s) to poll fast.
+      required: true
+      selector:
+        device:
+          integration: xiaomi_feeder
+          multiple: true
+    duration:
+      name: Duration
+      description: How long to poll fast, in seconds (10-3600). Activity at the bowl extends it.
+      required: false
+      default: 300
+      selector:
+        number:
+          min: 10
+          max: 3600
+          unit_of_measurement: s
+          mode: box

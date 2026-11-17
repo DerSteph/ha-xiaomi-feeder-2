@@ -50,7 +50,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 ### 📊 Telemetry & Sensors
 | Entity | Name | Description |
 | :--- | :--- | :--- |
-| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$): every 5 s from 2 min before a scheduled meal until 15 min after, after dispenses and while the weight changes; otherwise every 30 s. Attribute `fast_polling` shows the mode |
+| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$): every 10 s from 2 min before a scheduled meal until 15 min after, after dispenses and while the weight changes or after the `start_fast_polling` action; otherwise every 30 s. Attribute `fast_polling` shows the mode |
 | `sensor.<device>_last_eating_session` | Last Eating Session | Grams consumed in last eating session ($g$) |
 | `sensor.<device>_eating_history` | Eating History | Log of recent cat eating sessions with timestamps & durations |
 | `sensor.<device>_daily_eaten_calculated`| Daily Eaten (Calculated) | Daily intake sum calculated strictly from scale weight deltas |
@@ -172,6 +172,7 @@ cards:
 - `xiaomi_feeder.clear_refill_alert`: Dismisses active refill alert.
 - `xiaomi_feeder.clear_intake_alert`: Dismisses active intake alert.
 - `xiaomi_feeder.clear_schedule`: Wipes all EEPROM meals.
+- `xiaomi_feeder.start_fast_polling`: Polls the bowl weight every 10 s for `duration` seconds (default 300) on the given `device_id`(s), e.g. when a camera sees a cat at the bowl.
 
 ---
 

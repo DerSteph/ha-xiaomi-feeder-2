@@ -116,7 +116,7 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         # python-miio's Device is not thread-safe (shared message id counter), so
         # every call to the feeder is serialized, also the 5 s weight poll.
         self._device_lock = asyncio.Lock()
-        # The 5 s weight poll only talks to the feeder inside a fast window
+        # The fast weight poll only talks to the feeder inside a fast window
         # (around meals, after dispenses, while the bowl weight changes).
         self._fast_poll_until: Optional[datetime] = None
         self._last_fast_weight: Optional[int] = None
@@ -169,7 +169,7 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         await self._store.async_save(self._stored_data)
 
     def async_start_weight_polling(self) -> None:
-        """Start high-frequency 5-second polling of just the bowl weight scale."""
+        """Start the bowl weight poll timer (queries the feeder only inside a fast window)."""
         if self._unsub_weight_poll is None:
             self._unsub_weight_poll = async_track_time_interval(
                 self.hass,
@@ -178,13 +178,13 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             )
 
     def async_stop_weight_polling(self) -> None:
-        """Stop high-frequency 5-second weight polling."""
+        """Stop the bowl weight poll timer."""
         if self._unsub_weight_poll:
             self._unsub_weight_poll()
             self._unsub_weight_poll = None
 
     def is_fast_weight_polling(self, now: Optional[datetime] = None) -> bool:
-        """Whether the bowl weight is currently polled every 5 s."""
+        """Whether the bowl weight is currently polled fast (FAST_WEIGHT_SCAN_INTERVAL)."""
         now = now or dt_util.now()
         return self._fast_poll_until is not None and now < self._fast_poll_until
 
@@ -194,6 +194,12 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             if not self.is_fast_weight_polling():
                 _LOGGER.debug("Fast bowl weight polling on until %s (%s)", until, reason)
             self._fast_poll_until = until
+
+    def async_start_fast_polling(self, seconds: int) -> None:
+        """Poll the bowl weight fast for the next `seconds` (e.g. a camera saw a cat at the bowl)."""
+        self._extend_fast_polling(dt_util.now() + timedelta(seconds=seconds), "requested")
+        # Read the weight right away instead of waiting for the next tick.
+        self.hass.async_create_task(self._async_poll_weight())
 
     def _arm_for_scheduled_meal(self, now: datetime) -> None:
         """Open a window shortly before the next meal of the hardware schedule."""
@@ -305,7 +311,7 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
                 self._eating_session_start_weight = None
 
     async def _async_poll_weight(self, now: Optional[datetime] = None) -> None:
-        """Fast 5-second polling of just the bowl weight scale, only inside a fast window."""
+        """Fast polling of just the bowl weight scale, only inside a fast window."""
         now_dt = now or dt_util.now()
         self._arm_for_scheduled_meal(now_dt)
         if not self.is_fast_weight_polling(now_dt):
