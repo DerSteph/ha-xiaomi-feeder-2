@@ -72,6 +72,7 @@
     "sensor": {
       "bowl_weight": { "name": "Вес еды в миске" },
       "daily_eaten": { "name": "Съедено за день" },
+      "daily_eaten_calculated": { "name": "Съедено за день (расчёт)" },
       "last_meal_intake": { "name": "Съедено за последний раз" },
       "previous_meal_intake": { "name": "Съедено в прошлый раз" },
       "next_feeding": { "name": "Следующее кормление" },
@@ -80,6 +81,8 @@
       "feed_history": { "name": "История кормлений" },
       "timezone_offset": { "name": "Сдвиг часового пояса" },
       "daily_progress": { "name": "Выдано за день" },
+      "last_eating_session": { "name": "Последний приём пищи" },
+      "eating_history": { "name": "История приёмов пищи" },
       "target_portions": { "name": "Количество порций" }
     },
     "binary_sensor": {
@@ -90,7 +93,8 @@
       "fault": { "name": "Сбой устройства" },
       "dispensing": { "name": "Выдача корма" },
       "refill_alert": { "name": "Напоминание о пополнении" },
-      "dst_active": { "name": "Летнее время" }
+      "dst_active": { "name": "Летнее время" },
+      "cat_eating": { "name": "Кошка ест" }
     },
     "button": {
       "feed": { "name": "Покормить" },
