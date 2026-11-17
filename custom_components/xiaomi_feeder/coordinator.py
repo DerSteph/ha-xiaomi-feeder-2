@@ -30,7 +30,11 @@ from .const import (
     EVENT_EATING_COMPLETED,
     EVENT_FEED_COMPLETED,
     FAST_SCAN_INTERVAL,
+    FAST_WEIGHT_IDLE_SECONDS,
+    FAST_WEIGHT_LEAD_SECONDS,
+    FAST_WEIGHT_MEAL_WINDOW_SECONDS,
     FAST_WEIGHT_SCAN_INTERVAL,
+    FAST_WEIGHT_WAKE_GRAMS,
     FeederPIID,
     FeederSIID,
     MIN_EATING_THRESHOLD_GRAMS,
@@ -112,6 +116,11 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         # python-miio's Device is not thread-safe (shared message id counter), so
         # every call to the feeder is serialized, also the 5 s weight poll.
         self._device_lock = asyncio.Lock()
+        # The 5 s weight poll only talks to the feeder inside a fast window
+        # (around meals, after dispenses, while the bowl weight changes).
+        self._fast_poll_until: Optional[datetime] = None
+        self._last_fast_weight: Optional[int] = None
+        self._last_slow_weight: Optional[int] = None
 
     async def _async_device_job(self, func: Callable[..., Any], *args: Any) -> Any:
         """Run a blocking feeder call in the executor, one at a time."""
@@ -173,6 +182,26 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         if self._unsub_weight_poll:
             self._unsub_weight_poll()
             self._unsub_weight_poll = None
+
+    def is_fast_weight_polling(self, now: Optional[datetime] = None) -> bool:
+        """Whether the bowl weight is currently polled every 5 s."""
+        now = now or dt_util.now()
+        return self._fast_poll_until is not None and now < self._fast_poll_until
+
+    def _extend_fast_polling(self, until: datetime, reason: str) -> None:
+        """Open or extend the fast weight polling window (never shortens it)."""
+        if self._fast_poll_until is None or until > self._fast_poll_until:
+            if not self.is_fast_weight_polling():
+                _LOGGER.debug("Fast bowl weight polling on until %s (%s)", until, reason)
+            self._fast_poll_until = until
+
+    def _arm_for_scheduled_meal(self, now: datetime) -> None:
+        """Open a window shortly before the next meal of the hardware schedule."""
+        next_feed = self.data.next_feed_time if self.data else None
+        if next_feed and next_feed - timedelta(seconds=FAST_WEIGHT_LEAD_SECONDS) <= now:
+            self._extend_fast_polling(
+                next_feed + timedelta(seconds=FAST_WEIGHT_MEAL_WINDOW_SECONDS), "scheduled meal"
+            )
 
     def _calculate_today_eaten(self, now: datetime) -> int:
         """Calculate total grams eaten today purely based on completed eating sessions from scale weight."""
@@ -276,13 +305,17 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
                 self._eating_session_start_weight = None
 
     async def _async_poll_weight(self, now: Optional[datetime] = None) -> None:
-        """Fast 5-second polling of just the bowl weight scale."""
+        """Fast 5-second polling of just the bowl weight scale, only inside a fast window."""
+        now_dt = now or dt_util.now()
+        self._arm_for_scheduled_meal(now_dt)
+        if not self.is_fast_weight_polling(now_dt):
+            self._last_fast_weight = None
+            return
         # Skip instead of queueing behind a full status update or a command.
         if self._is_polling_weight or self._device_lock.locked():
             return
         self._is_polling_weight = True
         try:
-            now_dt = now or dt_util.now()
             res = await self._async_device_job(
                 self.client.get_properties,
                 [{"did": "p_weight", "siid": FeederSIID.PET_FEEDER, "piid": FeederPIID.REALTIME_BOWL_WEIGHT}],
@@ -292,6 +325,12 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
                 if val is not None and isinstance(val, (int, float)):
                     weight = max(0, int(val))
                     self._process_bowl_weight(weight, now_dt)
+                    changed = self._last_fast_weight is not None and abs(weight - self._last_fast_weight) > 1
+                    if changed or self._is_cat_eating:
+                        self._extend_fast_polling(
+                            now_dt + timedelta(seconds=FAST_WEIGHT_IDLE_SECONDS), "bowl activity"
+                        )
+                    self._last_fast_weight = weight
                     if self.data and self.data.status:
                         self.data.status.bowl_food_weight = weight
                         self.data.is_cat_eating = self._is_cat_eating
@@ -340,6 +379,21 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             # 4. Handle Dispense Cooldown and process scale weight
             if status.is_busy:
                 self._dispense_cooldown_until = now + timedelta(seconds=10)
+                self._extend_fast_polling(
+                    now + timedelta(seconds=FAST_WEIGHT_MEAL_WINDOW_SECONDS), "dispensing"
+                )
+
+            # Weight moved between two 30 s updates (cat at leftovers, manual refill)
+            if status.bowl_food_weight is not None:
+                slow_weight = max(0, int(status.bowl_food_weight))
+                if (
+                    self._last_slow_weight is not None
+                    and abs(slow_weight - self._last_slow_weight) >= FAST_WEIGHT_WAKE_GRAMS
+                ):
+                    self._extend_fast_polling(
+                        now + timedelta(seconds=FAST_WEIGHT_IDLE_SECONDS), "bowl weight changed"
+                    )
+                self._last_slow_weight = slow_weight
 
             # 5. Supervisor: Calculate next scheduled feeding & handle Skip Next Meal
             next_time, next_portions = self._calculate_next_feeding(schedule.meals)
@@ -487,6 +541,9 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
     async def async_feed(self, portions: Optional[int] = None) -> None:
         """Trigger manual feeding."""
         count = portions if portions is not None else self._manual_portions
+        self._extend_fast_polling(
+            dt_util.now() + timedelta(seconds=FAST_WEIGHT_MEAL_WINDOW_SECONDS), "manual feed"
+        )
         await self._async_device_job(self.client.feed, count)
         await self.async_request_refresh()
 

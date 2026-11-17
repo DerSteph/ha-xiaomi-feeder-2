@@ -251,6 +251,7 @@ def test_calculate_today_eaten():
 def test_weight_poll_skips_while_device_busy():
     """The 5 s weight poll must not talk to the feeder while another call holds the lock."""
     import asyncio
+    from datetime import timezone
     from unittest.mock import AsyncMock
     from custom_components.xiaomi_feeder.coordinator import XiaomiFeederCoordinator
 
@@ -266,6 +267,7 @@ def test_weight_poll_skips_while_device_busy():
             config_entry=MagicMock(),
         )
         coord._stored_data = {"eating_history": []}
+        coord._fast_poll_until = datetime.now(timezone.utc) + timedelta(minutes=5)
 
         async with coord._device_lock:
             await coord._async_poll_weight()
@@ -276,3 +278,71 @@ def test_weight_poll_skips_while_device_busy():
         assert not coord._device_lock.locked()
 
     asyncio.run(run())
+
+
+def _make_fast_poll_coordinator(weight: int = 12):
+    from unittest.mock import AsyncMock
+    from custom_components.xiaomi_feeder.coordinator import XiaomiFeederCoordinator
+
+    mock_hass = MagicMock()
+    mock_hass.async_add_executor_job = AsyncMock(return_value=[{"value": weight}])
+    coord = XiaomiFeederCoordinator(
+        hass=mock_hass,
+        ip="192.168.1.100",
+        token="12345678901234567890123456789012",
+        name="Test Feeder",
+        entry_id="entry_123",
+        config_entry=MagicMock(),
+    )
+    coord._stored_data = {"eating_history": []}
+    coord.data = None
+    return coord, mock_hass
+
+
+def test_weight_poll_idle_outside_fast_window():
+    """Without a meal, dispense or weight change the 5 s tick does not query the feeder."""
+    import asyncio
+    from datetime import timezone
+
+    coord, hass = _make_fast_poll_coordinator()
+    asyncio.run(coord._async_poll_weight(datetime(2026, 11, 17, 9, 0, tzinfo=timezone.utc)))
+    hass.async_add_executor_job.assert_not_called()
+
+
+def test_fast_window_around_scheduled_meal():
+    """The window opens 2 min before the scheduled meal and closes 15 min after it."""
+    import asyncio
+    from datetime import timezone
+
+    meal = datetime(2026, 11, 17, 11, 0, tzinfo=timezone.utc)
+    coord, hass = _make_fast_poll_coordinator()
+    coord.data = MagicMock(next_feed_time=meal, status=None)
+
+    asyncio.run(coord._async_poll_weight(meal - timedelta(minutes=3)))
+    hass.async_add_executor_job.assert_not_called()
+
+    asyncio.run(coord._async_poll_weight(meal - timedelta(minutes=2)))
+    assert hass.async_add_executor_job.call_count == 1
+
+    # After the meal the next update moves next_feed_time to the next meal; the window stays.
+    coord.data.next_feed_time = meal + timedelta(hours=4)
+    asyncio.run(coord._async_poll_weight(meal + timedelta(minutes=14)))
+    assert hass.async_add_executor_job.call_count == 2
+
+    asyncio.run(coord._async_poll_weight(meal + timedelta(minutes=16)))
+    assert hass.async_add_executor_job.call_count == 2
+
+
+def test_fast_window_extends_while_weight_changes():
+    """A changing bowl weight keeps fast polling on until it has been quiet for 5 min."""
+    import asyncio
+    from datetime import timezone
+
+    t0 = datetime(2026, 11, 17, 11, 0, tzinfo=timezone.utc)
+    coord, hass = _make_fast_poll_coordinator(weight=13)
+    coord._fast_poll_until = t0 + timedelta(seconds=10)
+
+    asyncio.run(coord._async_poll_weight(t0))
+    hass.async_add_executor_job.return_value = [{"value": 5}]
+    asyncio.run(coord._async_poll_weight(t0 + timedelta(seconds=5)))
+    assert coord._fast_poll_until == t0 + timedelta(seconds=5) + timedelta(minutes=5)

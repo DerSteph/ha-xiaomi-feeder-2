@@ -86,6 +86,10 @@ class XiaomiFeederBowlWeightSensor(XiaomiFeederBaseSensor):
             return self.coordinator.data.status.bowl_food_weight
         return None
 
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        return {"fast_polling": self.coordinator.is_fast_weight_polling()}
+
 
 class XiaomiFeederDailyEatenSensor(XiaomiFeederBaseSensor):
     """Daily cumulative eaten food weight sensor."""

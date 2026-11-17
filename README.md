@@ -50,7 +50,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 ### 📊 Telemetry & Sensors
 | Entity | Name | Description |
 | :--- | :--- | :--- |
-| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$) (polled every 5s) |
+| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$): every 5 s from 2 min before a scheduled meal until 15 min after, after dispenses and while the weight changes; otherwise every 30 s. Attribute `fast_polling` shows the mode |
 | `sensor.<device>_last_eating_session` | Last Eating Session | Grams consumed in last eating session ($g$) |
 | `sensor.<device>_eating_history` | Eating History | Log of recent cat eating sessions with timestamps & durations |
 | `sensor.<device>_daily_eaten_calculated`| Daily Eaten (Calculated) | Daily intake sum calculated strictly from scale weight deltas |
