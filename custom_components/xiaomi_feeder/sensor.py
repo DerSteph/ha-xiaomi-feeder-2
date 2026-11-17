@@ -286,7 +286,7 @@ class XiaomiFeederDailyProgressSensor(XiaomiFeederBaseSensor):
 
 
 class XiaomiFeederTargetPortionsSensor(XiaomiFeederBaseSensor):
-    """Target feeding portions telemetry sensor."""
+    """Portions dispensed by the last feeding (SIID 2 / PIID 7, read-only)."""
 
     _attr_translation_key = "target_portions"
     _attr_icon = "mdi:numeric"
@@ -294,7 +294,7 @@ class XiaomiFeederTargetPortionsSensor(XiaomiFeederBaseSensor):
     def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_target_portions"
-        self._attr_name = "Target Feeding Portions"
+        self._attr_name = "Last Feed Portions"
 
     @property
     def native_value(self) -> Optional[int]:
