@@ -38,6 +38,9 @@ from .const import (
     FeederPIID,
     FeederSIID,
     MIN_EATING_THRESHOLD_GRAMS,
+    SKIP_METHOD_DISABLE_TODAY,
+    SKIP_METHODS,
+    DEFAULT_SKIP_METHOD,
     STABILITY_REQUIRED_SAMPLES,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -147,6 +150,26 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             await self._async_device_job(self.client.set_target_portions, self._manual_portions)
         except Exception as err:
             _LOGGER.debug("Could not push target_portions to feeder: %s", err)
+
+    @property
+    def skip_method(self) -> str:
+        """How skip next meal changes the schedule (see SKIP_METHODS)."""
+        method = self._stored_data.get("skip_method", DEFAULT_SKIP_METHOD)
+        return method if method in SKIP_METHODS else DEFAULT_SKIP_METHOD
+
+    async def async_set_skip_method(self, method: str) -> None:
+        """Choose how skip next meal changes the schedule."""
+        if method not in SKIP_METHODS:
+            raise ValueError(f"Unknown skip method {method}")
+        self._stored_data["skip_method"] = method
+        await self._async_save_storage()
+
+    @staticmethod
+    def _mask_meal_raw(raw: str) -> str:
+        """Mark a meal skipped for today (status digits: 01 = active, 00 = skipped today)."""
+        if not raw or len(raw) < 8:
+            return raw
+        return raw[:6] + "00"
 
     async def async_load_storage(self) -> None:
         """Load persistent data from Home Assistant storage."""
@@ -648,13 +671,6 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             pass
         return res
 
-    @staticmethod
-    def _mask_meal_raw(raw: str) -> str:
-        """Disable a meal by zeroing its status field (last 2 digits: 01=active, 00=disabled)."""
-        if not raw or len(raw) < 8:
-            return raw
-        return raw[:6] + "00"
-
     async def async_write_hardware_schedule(self, raw_schedule_str: str) -> None:
         """Write raw schedule string to EEPROM and update master template."""
         clean_str = raw_schedule_str.strip()
@@ -681,13 +697,19 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             self._skip_meals_count = max(1, count)
             self._skipped_meal_time = self.data.next_feed_time
 
-            # Create an EEPROM payload that temporarily omits the next meal
+            # Meals must be comma-separated, the feeder rejects them glued together
+            # with -4005. The master schedule is written back afterwards either way.
             target_time_str = self.data.next_feed_time.strftime("%H:%M")
-            raw_payload = ",".join(
-                self._mask_meal_raw(m.raw) if m.time == target_time_str else m.raw
-                for m in self.data.schedule.meals
-            ) or "0"
-            _LOGGER.info("Temporarily disabling meal at %s. Writing payload: %s", target_time_str, raw_payload)
+            meals = self.data.schedule.meals
+            if self.skip_method == SKIP_METHOD_DISABLE_TODAY:
+                raw_payload = ",".join(
+                    self._mask_meal_raw(m.raw) if m.time == target_time_str else m.raw for m in meals
+                ) or "0"
+            else:
+                raw_payload = ",".join(m.raw for m in meals if m.time != target_time_str) or "0"
+            _LOGGER.info(
+                "Skipping meal at %s (%s). Writing payload: %s", target_time_str, self.skip_method, raw_payload
+            )
             await self._async_device_job(self._write_raw_hardware_schedule_sync, raw_payload)
         else:
             self._skip_next_meal = False

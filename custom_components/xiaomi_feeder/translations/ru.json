@@ -120,7 +120,11 @@
       "intake_alarm": { "name": "Low Intake Alarm" }
     },
     "select": {
-      "screen_display_mode": { "name": "Отображаемое на дисплее значение" }
+      "screen_display_mode": { "name": "Отображаемое на дисплее значение" },
+      "skip_method": {
+        "name": "Способ пропуска",
+        "state": { "remove": "Удалить кормление", "disable_today": "Отключить на сегодня" }
+      }
     },
     "text": {
       "hardware_schedule": { "name": "Аппаратное расписание" }
