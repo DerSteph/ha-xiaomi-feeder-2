@@ -6,7 +6,7 @@ from typing import Optional
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -17,6 +17,7 @@ from .const import (
     FeederSIID,
     INT_TO_SCREEN_MODE,
     SCREEN_DISPLAY_MAP,
+    SKIP_METHODS,
 )
 from .coordinator import XiaomiFeederCoordinator
 
@@ -31,6 +32,7 @@ async def async_setup_entry(
 
     selects: list[SelectEntity] = [
         XiaomiFeederScreenDisplaySelect(coordinator, entry),
+        XiaomiFeederSkipMethodSelect(coordinator, entry),
     ]
 
     async_add_entities(selects)
@@ -84,3 +86,24 @@ class XiaomiFeederScreenDisplaySelect(XiaomiFeederBaseSelect):
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_screen_display_mode(option)
 
+
+class XiaomiFeederSkipMethodSelect(XiaomiFeederBaseSelect):
+    """How "skip next meal" changes the schedule: remove the meal or disable it for today."""
+
+    _attr_translation_key = "skip_method"
+    _attr_options = SKIP_METHODS
+    _attr_icon = "mdi:food-off-outline"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_skip_method"
+        self._attr_name = "Skip Method"
+
+    @property
+    def current_option(self) -> Optional[str]:
+        return self.coordinator.skip_method
+
+    async def async_select_option(self, option: str) -> None:
+        await self.coordinator.async_set_skip_method(option)
+        self.async_write_ha_state()

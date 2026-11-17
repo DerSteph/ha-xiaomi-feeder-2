@@ -120,7 +120,11 @@
       "intake_alarm": { "name": "Fressmengen-Alarm" }
     },
     "select": {
-      "screen_display_mode": { "name": "Display Anzeige-Modus" }
+      "screen_display_mode": { "name": "Display Anzeige-Modus" },
+      "skip_method": {
+        "name": "Methode zum Aussetzen",
+        "state": { "remove": "Mahlzeit entfernen", "disable_today": "Für heute deaktivieren" }
+      }
     },
     "text": {
       "hardware_schedule": { "name": "Hardware-Zeitplan" }

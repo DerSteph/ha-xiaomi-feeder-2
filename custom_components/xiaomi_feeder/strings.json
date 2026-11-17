@@ -120,7 +120,11 @@
       "intake_alarm": { "name": "Low Intake Alarm" }
     },
     "select": {
-      "screen_display_mode": { "name": "Screen Display Metric" }
+      "screen_display_mode": { "name": "Screen Display Metric" },
+      "skip_method": {
+        "name": "Skip Method",
+        "state": { "remove": "Remove meal", "disable_today": "Disable for today" }
+      }
     },
     "text": {
       "hardware_schedule": { "name": "Hardware Schedule" }

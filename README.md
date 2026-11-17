@@ -84,6 +84,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 | `number.<device>_manual_portions` | Number (1–30) | Configures portions for manual feed |
 | `number.<device>_target_portions` | Number (1–30) | Feeder RAM default portion setting |
 | `switch.<device>_skip_next_meal` | Switch | Pauses next upcoming meal & auto-resumes |
+| `select.<device>_skip_method` | Select (config) | How the meal is skipped: `remove` (default, drops it from the schedule until it has passed) or `disable_today` (the firmware's own "skipped today" flag; not honored by every feeder and reset at midnight) |
 | `switch.<device>_screen_auto_sleep` | Switch | Day/night display sleep mode |
 | `switch.<device>_screen_progress` | Switch | Screen lights up during dispensing |
 | `switch.<device>_child_lock` | Switch | Locks physical top dispenser button |
