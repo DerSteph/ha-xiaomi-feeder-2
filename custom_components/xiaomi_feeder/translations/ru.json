@@ -1,0 +1,125 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение к Xiaomi Smart Pet Feeder 2",
+        "description": "Введите IP-адрес и 32-символьный токен локального устройства вашего Xiaomi Pet Feeder 2.",
+        "data": {
+          "host": "IP-адрес",
+          "token": "Токен устройства (32 шестнадцатиричных символа)",
+          "name": "Device Name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться к кормушке. Проверьте IP-адрес и токен",
+      "unknown": "Неизвестная ошибка"
+    },
+    "abort": {
+      "already_configured": "Это устройство уже настроено в Home Assistant."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройка расписания Xiaomi Pet Feeder",
+        "description": "{schedule_summary}\n\nВыберите действие ниже для управления расписанием в памяти кормушки:",
+        "menu_options": {
+          "add_meal": "Добавить новое расписание",
+          "edit_select": "Изменить существующее расписание",
+          "delete_select": "Удалить запланированное расписание",
+          "clear_all": "Очистить все расписания"
+        }
+      },
+      "add_meal": {
+        "title": "Добавить новое расписание",
+        "description": "Установите время кормления и количество порций (1 порция ≈ 10-15г):",
+        "data": {
+          "time": "Время кормления",
+          "portions": "Кол-во порций"
+        }
+      },
+      "edit_select": {
+        "title": "Выберите изменяемое расписание",
+        "description": "Выберите, какое расписание вы хотите изменить:",
+        "data": {
+          "meal_index": "Расписание"
+        }
+      },
+      "edit_meal": {
+        "title": "Изменить расписание",
+        "description": "Обновите время кормления, количество порций и активные дни:",
+        "data": {
+          "time": "Время кормления",
+          "portions": "Кол-во порций (1 порция ≈ 10-15г)",
+          "days": "Дни повторения"
+        }
+      },
+      "delete_select": {
+        "title": "Удалить расписание",
+        "description": "Выберите расписание, которое вы хотите удалить из кормушки:",
+        "data": {
+          "meal_index": "Удаляемое расписание"
+        }
+      },
+      "clear_all": {
+        "title": "Очистить все расписания",
+        "description": "Вы уверены, что хотите стереть все расписания из памяти кормушки?"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "bowl_weight": { "name": "Вес еды в миске" },
+      "daily_eaten": { "name": "Съедено за день" },
+      "last_meal_intake": { "name": "Съедено за последний раз" },
+      "previous_meal_intake": { "name": "Съедено в прошлый раз" },
+      "next_feeding": { "name": "Следующее кормление" },
+      "schedule_count": { "name": "Количество расписаний" },
+      "last_feed_event": { "name": "Прошлое кормление" },
+      "feed_history": { "name": "История кормлений" },
+      "timezone_offset": { "name": "Сдвиг часового пояса" },
+      "daily_progress": { "name": "Выдано за день" },
+      "target_portions": { "name": "Количество порций" }
+    },
+    "binary_sensor": {
+      "hopper_low": { "name": "Пустой бункер" },
+      "food_stuck": { "name": "Еда застряла/мотор заклинило" },
+      "dispense_error": { "name": "Ошибка выдачи" },
+      "food_heap": { "name": "Куча еды в миске" },
+      "fault": { "name": "Сбой устройства" },
+      "dispensing": { "name": "Выдача корма" },
+      "refill_alert": { "name": "Напоминание о пополнении" },
+      "dst_active": { "name": "Летнее время" }
+    },
+    "button": {
+      "feed": { "name": "Покормить" },
+      "tare_scale": { "name": "Обнулить весы" },
+      "clear_refill_alert": { "name": "Сброс напоминания о пополнении" },
+      "clear_intake_alert": { "name": "Clear Low Intake Alert" },
+      "clear_schedule": { "name": "Сбросить расписания" }
+    },
+    "number": {
+      "manual_portions": { "name": "Порций ручного кормления" },
+      "refill_interval": { "name": "Интервал напоминания о пополнении" },
+      "intake_threshold": { "name": "Low Intake Alarm Threshold" }
+    },
+    "switch": {
+      "screen_auto_sleep": { "name": "Автоотключение дисплея" },
+      "screen_progress": { "name": "Включать дисплей при выдаче" },
+      "child_lock": { "name": "Защита от детей" },
+      "anti_stacking": { "name": "Защита от заклинивания" },
+      "grain_compensation": { "name": "Корректировка веса корма" },
+      "schedule_enabled": { "name": "Аппаратное расписание" },
+      "skip_next_meal": { "name": "Пропустить кормление" },
+      "refill_reminder": { "name": "Refill Reminder" },
+      "intake_alarm": { "name": "Low Intake Alarm" }
+    },
+    "select": {
+      "screen_display_mode": { "name": "Отображаемое на дисплее значение" }
+    },
+    "text": {
+      "hardware_schedule": { "name": "Аппаратное расписание" }
+    }
+  }
+}
