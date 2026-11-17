@@ -6,7 +6,7 @@
         "description": "Введите IP-адрес и 32-символьный токен локального устройства вашего Xiaomi Pet Feeder 2.",
         "data": {
           "host": "IP-адрес",
-          "token": "Токен устройства (32 шестнадцатиричных символа)",
+          "token": "Токен устройства (32 шестнадцатеричных символа)",
           "name": "Device Name"
         }
       }
@@ -83,7 +83,7 @@
       "daily_progress": { "name": "Выдано за день" },
       "last_eating_session": { "name": "Последний приём пищи" },
       "eating_history": { "name": "История приёмов пищи" },
-      "target_portions": { "name": "Количество порций" }
+      "target_portions": { "name": "Порций при последнем кормлении" }
     },
     "binary_sensor": {
       "hopper_low": { "name": "Пустой бункер" },
