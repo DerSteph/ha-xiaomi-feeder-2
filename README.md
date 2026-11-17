@@ -50,8 +50,11 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 ### 📊 Telemetry & Sensors
 | Entity | Name | Description |
 | :--- | :--- | :--- |
-| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$) |
-| `sensor.<device>_daily_eaten` | Daily Eaten Weight | Total grams eaten today ($g$) |
+| `sensor.<device>_bowl_weight` | Bowl Food Weight | Live weight in bowl ($g$) (polled every 5s) |
+| `sensor.<device>_last_eating_session` | Last Eating Session | Grams consumed in last eating session ($g$) |
+| `sensor.<device>_eating_history` | Eating History | Log of recent cat eating sessions with timestamps & durations |
+| `sensor.<device>_daily_eaten_calculated`| Daily Eaten (Calculated) | Daily intake sum calculated strictly from scale weight deltas |
+| `sensor.<device>_daily_eaten` | Daily Eaten Weight | Hardware-reported daily eaten counter ($g$) |
 | `sensor.<device>_last_meal_intake` | Last Meal Intake | Grams consumed in last meal |
 | `sensor.<device>_previous_meal_intake`| Previous Meal Intake | Grams consumed in prior meal |
 | `sensor.<device>_next_feeding` | Next Feeding | Next meal timestamp & portion count |
@@ -63,6 +66,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 ### 🚨 Binary Sensors & Alarms
 | Entity | Name | Description |
 | :--- | :--- | :--- |
+| `binary_sensor.<device>_cat_eating` | Cat Eating | Active while a cat is currently at the bowl eating |
 | `binary_sensor.<device>_hopper_low` | Hopper Low | Food level empty/low warning |
 | `binary_sensor.<device>_food_stuck` | Food Stuck / Motor Jam | Rotor blocked alert |
 | `binary_sensor.<device>_dispense_error` | Dispense Error | Dispense failure |

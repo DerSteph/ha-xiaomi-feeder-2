@@ -4,6 +4,9 @@ DOMAIN = "xiaomi_feeder"
 DEFAULT_NAME = "Xiaomi Smart Pet Feeder 2"
 DEFAULT_SCAN_INTERVAL = 30  # seconds
 FAST_SCAN_INTERVAL = 2      # seconds while dispensing
+FAST_WEIGHT_SCAN_INTERVAL = 5 # seconds for bowl weight polling
+MIN_EATING_THRESHOLD_GRAMS = 2 # minimum net grams drop to record eating session
+STABILITY_REQUIRED_SAMPLES = 2 # consecutive stable samples needed to settle weight
 
 CONF_IP = "host"
 CONF_TOKEN = "token"
@@ -108,4 +111,5 @@ SCREEN_DISPLAY_MAP = {
 
 # Events fired on HA event bus
 EVENT_FEED_COMPLETED = f"{DOMAIN}_feed_completed"
+EVENT_EATING_COMPLETED = f"{DOMAIN}_eating_completed"
 

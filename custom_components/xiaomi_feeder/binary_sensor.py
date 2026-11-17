@@ -34,6 +34,7 @@ async def async_setup_entry(
         XiaomiFeederDispensingSensor(coordinator, entry),
         XiaomiFeederRefillAlertSensor(coordinator, entry),
         XiaomiFeederDstActiveSensor(coordinator, entry),
+        XiaomiFeederCatEatingBinarySensor(coordinator, entry),
     ]
 
     async_add_entities(binary_sensors)
@@ -206,3 +207,23 @@ class XiaomiFeederDstActiveSensor(XiaomiFeederBaseBinarySensor):
         if self.coordinator.data and self.coordinator.data.status:
             return self.coordinator.data.status.dst_active
         return None
+
+
+class XiaomiFeederCatEatingBinarySensor(XiaomiFeederBaseBinarySensor):
+    """Binary sensor indicating if a cat is currently at the bowl eating."""
+
+    _attr_translation_key = "cat_eating"
+    _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
+    _attr_icon = "mdi:cat"
+
+    def __init__(self, coordinator: XiaomiFeederCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_cat_eating"
+        self._attr_name = "Cat Eating"
+
+    @property
+    def is_on(self) -> bool:
+        if self.coordinator.data:
+            return bool(self.coordinator.data.is_cat_eating)
+        return False
+
