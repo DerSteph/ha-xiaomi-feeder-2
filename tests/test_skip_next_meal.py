@@ -38,8 +38,8 @@ def make_coordinator(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_skip_next_meal_disables_next_meal(mock_hass, make_coordinator):
-    """Test skipping the next meal disables it in a comma-separated EEPROM payload."""
+async def test_skip_next_meal_removes_next_meal(mock_hass, make_coordinator):
+    """Skipping removes the next meal; the remaining meals are written comma-separated."""
     coordinator = make_coordinator()
     coordinator._stored_data = {"master_schedule_raw": "[1,03000101,15000101,23000101]"}
 
@@ -64,7 +64,7 @@ async def test_skip_next_meal_disables_next_meal(mock_hass, make_coordinator):
 
     assert coordinator._skip_next_meal is True
     assert coordinator._skipped_meal_time == next_feed_time
-    expected = "03000101,15000100,23000101"
+    expected = "03000101,23000101"
     mock_hass.async_add_executor_job.assert_awaited_once_with(
         coordinator._write_raw_hardware_schedule_sync, expected
     )
