@@ -83,7 +83,7 @@
       "feed_history": { "name": "Feeding History" },
       "timezone_offset": { "name": "Device Timezone Offset" },
       "daily_progress": { "name": "Daily Schedule Progress" },
-      "target_portions": { "name": "Target Feeding Portions" }
+      "target_portions": { "name": "Last Feed Portions" }
     },
     "binary_sensor": {
       "hopper_low": { "name": "Hopper Low" },

@@ -57,6 +57,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 | `sensor.<device>_daily_eaten` | Daily Eaten Weight | Hardware-reported daily eaten counter ($g$) |
 | `sensor.<device>_last_meal_intake` | Last Meal Intake | Grams consumed in last meal |
 | `sensor.<device>_previous_meal_intake`| Previous Meal Intake | Grams consumed in prior meal |
+| `sensor.<device>_target_portions` | Last Feed Portions | Portions dispensed by the last feeding (read-only on the device) |
 | `sensor.<device>_next_feeding` | Next Feeding | Next meal timestamp & portion count |
 | `sensor.<device>_schedule_count` | Schedule Meals Count | Number of EEPROM meals stored |
 | `sensor.<device>_feed_history` | Feeding History | History array for timeline cards |
@@ -81,8 +82,7 @@ A high-performance, 100% local **Home Assistant Community Store (HACS)** custom 
 | `button.<device>_feed` | Button | Dispenses manual portions |
 | `button.<device>_tare_scale` | Button | Tares/calibrates bowl weight scale |
 | `button.<device>_clear_schedule` | Button | Wipes device EEPROM schedule memory |
-| `number.<device>_manual_portions` | Number (1–30) | Configures portions for manual feed |
-| `number.<device>_target_portions` | Number (1–30) | Feeder RAM default portion setting |
+| `number.<device>_manual_portions` | Number (1–30) | Portions for manual feeds (stored in HA, sent with each feed) |
 | `switch.<device>_skip_next_meal` | Switch | Pauses next upcoming meal & auto-resumes |
 | `select.<device>_skip_method` | Select (config) | How the meal is skipped: `remove` (default, drops it from the schedule until it has passed) or `disable_today` (the firmware's own "skipped today" flag; not honored by every feeder, and it only applies to the current day) |
 | `switch.<device>_screen_auto_sleep` | Switch | Day/night display sleep mode |

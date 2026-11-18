@@ -142,14 +142,10 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
         self.hass.async_create_task(self._async_save_storage())
 
     async def async_set_manual_portions(self, portions: int) -> None:
-        """Set manual portions in HA and sync to feeder hardware."""
+        """Set the portions used by manual feeds (kept in HA, sent with each feed)."""
         self._manual_portions = max(1, min(30, int(portions)))
         self._stored_data["manual_portions"] = self._manual_portions
         await self._async_save_storage()
-        try:
-            await self._async_device_job(self.client.set_target_portions, self._manual_portions)
-        except Exception as err:
-            _LOGGER.debug("Could not push target_portions to feeder: %s", err)
 
     @property
     def skip_method(self) -> str:
@@ -392,17 +388,8 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
                 self._stored_data["master_schedule_raw"] = schedule.raw_string
                 await self._async_save_storage()
 
-            # 3. Auto-sync manual portions to feeder hardware if feeder rebooted / desynced
-            if status.target_feeding_portions and status.target_feeding_portions != self._manual_portions:
-                _LOGGER.debug(
-                    "Feeder target portions (%s) differs from slider setting (%s). Re-syncing...",
-                    status.target_feeding_portions,
-                    self._manual_portions,
-                )
-                try:
-                    await self._async_device_job(self.client.set_target_portions, self._manual_portions)
-                except Exception as err:
-                    _LOGGER.debug("Could not re-sync target_portions to feeder: %s", err)
+            # 3. SIID 2 / PIID 7 is read-only on the Feeder 2 (writes return -4005); it only
+            #    reports the portions of the last feeding, so there is nothing to re-sync.
 
             now = dt_util.now()
 
@@ -584,11 +571,6 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
     async def async_calibrate_scale(self) -> None:
         """Tare / calibrate bowl scale load cell."""
         await self._async_device_job(self.client.calibrate_scale)
-        await self.async_request_refresh()
-
-    async def async_set_target_portions(self, portions: int) -> None:
-        """Set RAM default manual portions."""
-        await self._async_device_job(self.client.set_target_portions, portions)
         await self.async_request_refresh()
 
     async def async_set_child_lock(self, locked: bool) -> None:

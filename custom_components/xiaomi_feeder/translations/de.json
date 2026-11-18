@@ -83,7 +83,7 @@
       "feed_history": { "name": "Fütterungsverlauf" },
       "timezone_offset": { "name": "Geräte-Zeitzonen-Offset" },
       "daily_progress": { "name": "Tagesplan Fortschritt" },
-      "target_portions": { "name": "Standard-Portionen" }
+      "target_portions": { "name": "Portionen letzte Fütterung" }
     },
     "binary_sensor": {
       "hopper_low": { "name": "Futterbehälter fast leer" },
