@@ -126,3 +126,8 @@ SKIP_METHOD_DISABLE_TODAY = "disable_today"
 SKIP_METHODS = [SKIP_METHOD_REMOVE, SKIP_METHOD_DISABLE_TODAY]
 DEFAULT_SKIP_METHOD = SKIP_METHOD_REMOVE
 
+# The master schedule is written back only this long after the skipped meal time.
+# The feeder still serves a meal that is written back inside its own minute
+# (it dispenses a few seconds after HH:MM:00), and its RTC can drift from HA's clock.
+SKIP_RESTORE_DELAY_SECONDS = 120
+

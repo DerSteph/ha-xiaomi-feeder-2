@@ -1,6 +1,6 @@
 """Tests for Xiaomi Feeder Skip Next Meal switch."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -253,3 +253,51 @@ async def test_update_keeps_skip_when_restore_fails(mock_hass, make_coordinator)
 
     assert coordinator._skip_next_meal is True
     assert "skip_state" in coordinator._stored_data
+
+
+@pytest.mark.parametrize("seconds_after_meal", [1, 15, 59, 119])
+@pytest.mark.asyncio
+async def test_update_does_not_restore_during_skipped_meal_minute(
+    mock_hass, make_coordinator, seconds_after_meal
+):
+    """The feeder still serves a meal written back inside its own minute (21 Nov 12:00:12),
+    so the master schedule must stay off the feeder until the meal minute is safely over."""
+    _run_executor_jobs(mock_hass)
+    meal = datetime(2026, 11, 21, 11, 0, tzinfo=timezone.utc)
+    coordinator = make_coordinator()
+    coordinator._stored_data = {
+        "master_schedule_raw": "[1,12000101,16000101]",
+        "skip_state": {"meal_time": meal.isoformat(), "count": 1},
+    }
+    coordinator._restore_skip_state()
+    coordinator.client.status.return_value = _idle_status()
+    coordinator.client.get_hardware_schedule.return_value = "[1,16000101]"
+
+    now = meal + timedelta(seconds=seconds_after_meal)
+    with patch("custom_components.xiaomi_feeder.coordinator.dt_util.now", return_value=now):
+        await coordinator._async_update_data()
+
+    coordinator._write_raw_hardware_schedule_sync.assert_not_called()
+    assert coordinator._skip_next_meal is True
+    assert "skip_state" in coordinator._stored_data
+
+
+@pytest.mark.asyncio
+async def test_update_restores_once_meal_minute_is_over(mock_hass, make_coordinator):
+    _run_executor_jobs(mock_hass)
+    meal = datetime(2026, 11, 21, 11, 0, tzinfo=timezone.utc)
+    coordinator = make_coordinator()
+    coordinator._stored_data = {
+        "master_schedule_raw": "[1,12000101,16000101]",
+        "skip_state": {"meal_time": meal.isoformat(), "count": 1},
+    }
+    coordinator._restore_skip_state()
+    coordinator.client.status.return_value = _idle_status()
+    coordinator.client.get_hardware_schedule.return_value = "[1,12000101,16000101]"
+
+    now = meal + timedelta(minutes=2, seconds=1)
+    with patch("custom_components.xiaomi_feeder.coordinator.dt_util.now", return_value=now):
+        await coordinator._async_update_data()
+
+    coordinator._write_raw_hardware_schedule_sync.assert_called_once_with("[1,12000101,16000101]")
+    assert coordinator._skip_next_meal is False
