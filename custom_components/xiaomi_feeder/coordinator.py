@@ -40,6 +40,7 @@ from .const import (
     MIN_EATING_THRESHOLD_GRAMS,
     SKIP_METHOD_DISABLE_TODAY,
     SKIP_METHODS,
+    SKIP_RESTORE_DELAY_SECONDS,
     DEFAULT_SKIP_METHOD,
     STABILITY_REQUIRED_SAMPLES,
     STORAGE_KEY,
@@ -428,9 +429,12 @@ class XiaomiFeederCoordinator(DataUpdateCoordinator[FeederCoordinatorData]):
             # 5. Supervisor: Calculate next scheduled feeding & handle Skip Next Meal
             next_time, next_portions = self._calculate_next_feeding(schedule.meals)
 
-            # Check if an active skipped meal timestamp has now passed (also right after
-            # a restart, the skip state is restored from storage)
-            if self._skipped_meal_time and now > self._skipped_meal_time:
+            # Check if an active skipped meal is safely over (also right after a restart,
+            # the skip state is restored from storage). Not right at the meal time: the
+            # feeder still serves a meal that is written back inside its own minute.
+            if self._skipped_meal_time and now > self._skipped_meal_time + timedelta(
+                seconds=SKIP_RESTORE_DELAY_SECONDS
+            ):
                 _LOGGER.info("Skipped meal time %s has passed. Restoring master schedule", self._skipped_meal_time)
 
                 # Restore master schedule to EEPROM. The skip state is only cleared after
